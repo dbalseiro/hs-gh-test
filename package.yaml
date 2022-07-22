@@ -21,10 +21,13 @@ description:         Please see the README on GitHub at <https://github.com/dbal
 
 dependencies:
 - base >= 4.7 && < 5
+- github
+- text
+- mtl
 
 ghc-options:
-  - -Werror
   - -Wall
+  - -Werror
 
 executables:
   hs-gh-test-exe:
