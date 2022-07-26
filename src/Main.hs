@@ -22,6 +22,7 @@ data Config = Config
   , cfgRepoName  :: !Text
   , cfgRepoRef   :: !Text
   , cfgToken     :: !Text
+  , cfgDir       :: !Text
   }
 
 data Canonical = Canonical
@@ -37,9 +38,9 @@ main = runExceptT (getConfig >>= getGHContents) >>= presentResults
 
 getConfig :: M Config
 getConfig = do
-  Canonical{..} <- ExceptT (parseArguments <$> getArgs)
+  (Canonical{..}, dir) <- ExceptT (parseArguments <$> getArgs)
   token <- getTokenFromEnv
-  return $ Config canonicalOwner canonicalName canonicalRef token
+  return $ Config canonicalOwner canonicalName canonicalRef token dir
 
 getTokenFromEnv :: M Text
 getTokenFromEnv =
@@ -47,12 +48,21 @@ getTokenFromEnv =
       errmsg = GH.UserError $ T.pack var <> " not found"
    in maybe (throwError errmsg) (return . T.pack) =<< liftIO (lookupEnv var)
 
-parseArguments :: [String] -> Either GH.Error Canonical
-parseArguments [canonical] = do
+parseArguments :: [String] -> Either GH.Error (Canonical, Text)
+parseArguments (canonical:dir) =
+  (,) <$> parseCanonical canonical
+      <*> pure (parseDir dir)
+parseArguments _ = userErrorGH "Expected at least one CLI argument"
+
+parseCanonical :: String -> Either GH.Error Canonical
+parseCanonical canonical = do
   (repo, canonicalRef) <- split '#' (T.pack canonical)
   (canonicalOwner, canonicalName) <- split '/' repo
   return Canonical{..}
-parseArguments _ = userErrorGH "Expected single CLI argument"
+
+parseDir :: [String] -> Text
+parseDir [] = ""
+parseDir (x:_) = T.pack x
 
 split :: Char -> Text -> Either GH.Error (Text, Text)
 split c txt =
@@ -69,7 +79,7 @@ getGHContents Config{..} =
       repo  = GH.mkName (Proxy :: Proxy GH.Repo) cfgRepoName
       ref   = Just cfgRepoRef
       auth  = GH.OAuth (T.encodeUtf8 cfgToken)
-      req   = GH.contentsForR owner repo "" ref
+      req   = GH.contentsForR owner repo cfgDir ref
    in ExceptT $ (extractFiles =<<) <$> GH.github auth req
 
 extractFiles :: GH.Content -> Either GH.Error [Text]
