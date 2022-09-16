@@ -88,6 +88,7 @@ extractFiles (GH.ContentDirectory v) = pure (foldr fileNames [] v)
   where
     fileNames :: GH.ContentItem -> [Text] -> [Text]
     fileNames (GH.ContentItem GH.ItemFile content) = (GH.contentName content:)
+    fileNames (GH.ContentItem GH.ItemSymlink content) = (GH.contentName content:)
     fileNames _ = id
 
 presentResults :: Either GH.Error [Text] -> IO ()
